@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name Visual selector generator
 // @namespace Shaman
 // @match *://*/*
@@ -938,6 +938,8 @@ var getElementBoundingClientRect = function(elem) {
 
 /******************************************************************************/
 
+var originalTargetElement = null;
+
 var highlightElements = function(elems, force) {
     // To make mouse move handler more efficient
     if ( !force && elems.length === targetElements.length ) {
@@ -946,6 +948,34 @@ var highlightElements = function(elems, force) {
         }
     }
     targetElements = elems;
+    
+    var first = targetElements[0];
+    if(first){
+        if(!originalTargetElement || !first.contains(originalTargetElement)){
+            originalTargetElement = first;
+            //alert('setto: ' + first.outerHTML)
+        }
+    }else{
+        originalTargetElement = null;
+        //alert('setnull')
+    }
+    
+    
+    var sel = getSelectorForCurrentTarget();
+    var pickerDoc = pickerRoot.contentWindow.document;
+    if(!pickerDoc.getElementById('current-selector')){
+        var cur = pickerDoc.createElement('div');
+        cur.id = 'current-selector';
+        cur.style.color = 'white';
+        cur.style.position = 'fixed';
+        cur.style.fontSize = '15pt';
+        cur.style.fontWeight = 'bold';
+        pickerDoc.body.appendChild(cur);
+    }
+    pickerDoc.getElementById('current-selector').textContent = sel || '';
+    
+    //if(!originalTargetElement ||)
+    //if(!isNarrowLooseAdjustment) originalTargetElements = targetElements;
 
     var ow = pickerRoot.contentWindow.innerWidth;
     var oh = pickerRoot.contentWindow.innerHeight;
@@ -1179,7 +1209,7 @@ var filterTypes = {
 // Also take into account the `src` attribute for `img` elements -- and limit
 // the value to the 1024 first characters.
 
-var cosmeticFilterFromElement = function(elem) {
+var cosmeticFilterFromElement = function(elem, realtime) {
     if ( elem === null ) {
         return 0;
     }
@@ -1187,18 +1217,21 @@ var cosmeticFilterFromElement = function(elem) {
         return 0;
     }
 
-    if ( candidateElements.indexOf(elem) === -1 ) {
+    if (!realtime && candidateElements.indexOf(elem) === -1 ) {
         candidateElements.push(elem);
     }
 
     var tagName = elem.localName;
     var selector = '';
     var v, i;
+    
+    if(realtime)
+        selector += tagName;
 
     // Id
     v = typeof elem.id === 'string' && CSS.escape(elem.id);
     if ( v ) {
-        selector = '#' + v;
+        selector += '#' + v;
     }
 
     // Class(es)
@@ -1262,7 +1295,7 @@ var cosmeticFilterFromElement = function(elem) {
     // `nth-of-type`. It is preferable to use `nth-of-type` as opposed to
     // `nth-child`, as `nth-of-type` is less volatile.
     var parentNode = elem.parentNode;
-    if ( safeQuerySelectorAll(parentNode, cssScope + selector).length > 1 ) {
+    if (!realtime && safeQuerySelectorAll(parentNode, cssScope + selector).length > 1 ) {
         i = 1;
         while ( elem.previousSibling !== null ) {
             elem = elem.previousSibling;
@@ -1273,6 +1306,8 @@ var cosmeticFilterFromElement = function(elem) {
         }
         selector += ':nth-of-type(' + i + ')';
     }
+
+    if(realtime) return selector;
 
     if ( bestCandidateFilter === null ) {
         bestCandidateFilter = {
@@ -1302,6 +1337,10 @@ var filtersFrom = function(x, y) {
     } else if ( x instanceof HTMLElement ) {
         first = x;
         x = undefined;
+    } else if (x === null){
+        first = targetElements[0];
+        if(!first) return 0;
+        //alert(first.outerHTML)
     }
 
     // Network filter from element which was clicked.
@@ -1928,6 +1967,23 @@ var showDialog = function(options) {
     onCandidateChanged();
 };
 
+function getSelectorForCurrentTarget(){
+/*
+    cosmeticFilterFromElement()
+    if(!bestCandidateFilter) return null;
+    var filterChoice = {
+        filters: bestCandidateFilter.filters,
+        slot: bestCandidateFilter.slot,
+        modifier: true
+    };
+*/
+    var first = targetElements[0];
+    if(!first) return null;
+
+    return cosmeticFilterFromElement(first, true) || null;
+    //return candidateFromFilterChoice(filterChoice);
+}
+
 /******************************************************************************/
 
 var zap = function() {
@@ -2091,7 +2147,7 @@ var onSvgClicked = function(ev) {
         }
         return;
     }
-    if ( filtersFrom(ev.clientX, ev.clientY) === 0 ) {
+    if ( filtersFrom(null /*ev.clientX, ev.clientY*/) === 0 ) {
         return;
     }
     showDialog({ show: ev.type === 'touch' });
@@ -2104,9 +2160,136 @@ var svgListening = function(on) {
     svgRoot[action]('mousemove', onSvgHovered, { passive: true });
 };
 
+
+function hideAllExcept(node){
+    hideAllExceptInternal(node, document.body);
+}
+function hideAllExceptInternal(node, b){
+    if(node == b) return;
+    if(b.contains(node)){
+        for(var c = b.firstChild; c; c = c.nextSibling){
+            hideAllExceptInternal(node, c);
+        }
+    }else{
+        hide(b);
+    }
+}
+
+function hide(b, strong){
+    if(b.style){
+        for(var i = 0; i < hiddenElements.length; i++){
+            if(hiddenElements[i].element == b){
+                if(strong) hiddenElements[i].strong = true;
+                return;
+            }
+        }
+        
+        hiddenElements.push({ element: b, display: b.style.display, visibility: b.style.visibility, strong: strong });
+        b.style.display = 'none';
+        b.style.visibility = 'hidden';
+    }
+}
+
+var hiddenElements = [];
+
+function unhideElements(totalReset){
+    if(!hiddenElements.length) return;
+    hiddenElements.forEach(x => {
+        if(totalReset || x.strong){
+            x.element.style.display = x.display;
+            x.element.style.visibility = x.visibility;
+        }
+    });
+    if(totalReset) hiddenElements = [];
+    else hiddenElements = hiddenElements.filter(x => x.strong);
+    highlightElements(targetElements, true);
+}
+
+
+
 /******************************************************************************/
 
 var onKeyPressed = function(ev) {
+
+    if(ev.key === 's'){
+        
+        var first = targetElements[0];
+        if(first && first.parentElement){
+            highlightElements([first.parentElement], false);
+            //showDialog();
+        }
+        
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    
+    if(ev.key == ' '){
+        unpausePicker();
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    
+    if(ev.key == 'r'){
+        unhideElements(true);
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    if(ev.key == 'x'){
+        var first = targetElements[0];
+        if(first){
+            hide(first, true);
+            originalTargetElement = first.parentElement;
+            highlightElements([], true);
+        }
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    if(ev.key == 'p'){
+        unhideElements();
+        var first = targetElements[0];
+        if(first){
+            hideAllExcept(first);
+            highlightElements(targetElements, true);
+        }
+    
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;        
+    }
+    if(ev.key === 'Enter'){
+    
+        if ( filtersFrom(null) !== 0 ){
+            showDialog({ show: ev.type === 'touch' });
+        }
+    
+    
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    if(ev.key === 'w'){
+        var current = targetElements[0];
+        var k = originalTargetElement;
+        if(k && current){
+            var next = null;
+            while(k){
+                if(k.parentElement == current){ next = k; break; }
+                k = k.parentElement
+            }
+            if(next){
+                highlightElements([next], false, true);
+                //showDialog();
+            }
+        }
+    
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
     // Delete
     if ( ev.key === 'Delete' && pickerBody.classList.contains('zap') ) {
         ev.stopPropagation();
@@ -2122,6 +2305,7 @@ var onKeyPressed = function(ev) {
         stopPicker();
         return;
     }
+    
 };
 
 /******************************************************************************/
@@ -2306,7 +2490,12 @@ var bootstrapPicker = function() {
         { what: 'elementPickerArguments' },
         startPicker
     );
+    setTimeout(function(){
+        pickerRoot.contentWindow.focus();
+    }, 100);
+    
 };
+
 
 /******************************************************************************/
 
@@ -2359,6 +2548,7 @@ vAPI.domFilterer.excludeNode(pickerRoot);
 
 pickerRoot.addEventListener('load', bootstrapPicker);
 document.documentElement.appendChild(pickerRoot);
+
 
 /******************************************************************************/
 
