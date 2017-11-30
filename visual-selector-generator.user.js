@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name Visual selector generator
 // @namespace Shaman
 // @match *://*/*
@@ -53,7 +53,7 @@ window.vAPI = {
             var pickerRoot = document.getElementById(vAPI.sessionId);
         
             callback({
-                frameContent: epickerHtml, //pickerRoot.contentWindow.document.body.parentElement.outerHTML.replace(reStrings, replacer),
+                frameContent: epickerHtml.replace(reStrings, replacer), //pickerRoot.contentWindow.document.body.parentElement.outerHTML.replace(reStrings, replacer),
                 target: µb.epickerTarget,
                 clientX: µb.mouseEventRegister.x,
                 clientY: µb.mouseEventRegister.y,
