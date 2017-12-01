@@ -31,7 +31,14 @@ pickerRoot.id = 'thepicker';
 document.body.appendChild(pickerRoot);
 */
 
+document.addEventListener('keydown', e => {
+  if(e.key == 'w' && e.altKey){
+    execute();
+    e.preventDefault();
+  } 
+}); 
 
+function execute(){
 var blogHost = window.location.hostname.replace(/\./g, '_');
 var hostQuery = 'host=eq.' + encodeURIComponent(blogHost);
 
@@ -2693,3 +2700,4 @@ document.body.setAttribute('contextmenu', menu.id);
 
 
 onPickerLoaded();
+}
