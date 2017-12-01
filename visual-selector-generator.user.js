@@ -8,29 +8,6 @@
 // ==/UserScript==
 
 
-/*
-function setHighlighted(el, enabled){
-  if(enabled){
-    
-  }else{
-    
-  }
-}
-
-document.body.parentElement.addEventListener('mousemove', function(event) {
-   var el = event.target;
-   if(!el) return;
-  
-  
-});
-*/
-/*
-var pickerRoot = document.createElement('iframe');
-pickerRoot.id = 'thepicker';
-
-document.body.appendChild(pickerRoot);
-*/
-
 document.addEventListener('keydown', e => {
   if(e.key == 'w' && e.altKey){
     execute();
