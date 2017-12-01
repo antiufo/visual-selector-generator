@@ -2657,24 +2657,5 @@ document.documentElement.appendChild(pickerRoot);
 
 
 
-/*
-var menu = document.createElement('menu');
-menu.type = 'context'
-var m = document.createElement('menuitem');
-
-
-m.label = "Create selector";
-m.addEventListener('click', event =>{
-  alert(event.target);
-  
-  
-});
-menu.id = 'ShamanVisualSelectorGeneratorMenu';
-menu.appendChild(m);
-document.body.appendChild(menu);
-document.body.setAttribute('contextmenu', menu.id);
-*/
-
-
 onPickerLoaded();
 }
