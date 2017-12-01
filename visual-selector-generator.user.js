@@ -3,10 +3,11 @@
 // @namespace Shaman
 // @match *://*/*
 // @grant none
+// @grant GM_xmlhttpRequest
+// @noframes
 // ==/UserScript==
 
 
-//alert('meowss');
 /*
 function setHighlighted(el, enabled){
   if(enabled){
@@ -31,6 +32,81 @@ document.body.appendChild(pickerRoot);
 */
 
 
+var blogHost = window.location.hostname.replace(/\./g, '_');
+var hostQuery = 'host=eq.' + encodeURIComponent(blogHost);
+
+
+
+var blogInfo = null;
+function setvalues(modify){
+    if(blogInfo) modify();
+    else {
+        var z = {host: blogHost, example_url: window.location.href};
+        xhr('POST', '/shaman_bloginfo', z,
+        result => { blogInfo = z; modify(); },
+        err => {
+          xhr('GET', '/shaman_bloginfo?' + hostQuery, null, r => {
+            blogInfo = JSON.parse(r)[0];
+            if(!blogInfo) alert('Error blog not found in db.');
+            else modify(); 
+          }, f => alert('Error: ' + f))
+        });
+    }
+}
+
+function findElements(sel){
+  return [...document.querySelectorAll(sel)];
+}
+
+
+function onPickerLoaded(){
+  
+  
+  xhr('GET', '/shaman_bloginfo?' + hostQuery, null, response => {
+    blogInfo = JSON.parse(response)[0];
+    if(!blogInfo) return;
+
+    if(blogInfo.article_selector){
+      var article = findElements(blogInfo.article_selector)[0];
+      if(article)
+        hideAllExcept(article);
+    }
+    
+    if(blogInfo.to_delete){
+      var sels = blogInfo.to_delete.split("\n");
+      sels.forEach(x => {
+        var items = findElements(sels);
+        items.forEach(y => hide(y));
+      });
+
+    }
+
+  }, err => {});
+
+}
+
+function xhr(method, url, data, onsuccess, onfail){
+
+  console.log('xhr: ' + method + ' ' + url + ' ' + (data ? JSON.stringify(data) : ''));
+  var handler = response => {
+    if(response.status.toString().startsWith('2')) onsuccess(response.responseText);
+    else onfail(response.responseText);
+  };
+  GM_xmlhttpRequest({
+    url: 'http://localhost:3000' + url,
+    method: method,
+    data: data ? JSON.stringify(data) : undefined,
+    headers: data ? { 'Content-Type': 'application/json' } : undefined,
+    onload: function(response){
+      handler(response);
+    },
+    onerror: function(response){
+      if(!onfail) alert('Error: ' + (response.status || response.readyState));
+      else handler(response);
+    }
+  });  
+
+}
 
 var epickerHtml = "<head>\r\n<meta charset=\"utf-8\">\r\n<style>\r\n:focus {\r\n    outline: none;\r\n}\r\nhtml, body {\r\n    background: transparent !important;\r\n    color: black;\r\n    font: 12px sans-serif;\r\n    height: 100%;\r\n    margin: 0;\r\n    overflow: hidden;\r\n    width: 100%;\r\n}\r\nul, li, div {\r\n    display: block;\r\n}\r\nul {\r\n    margin: 0.25em 0 0 0;\r\n}\r\nbutton {\r\n    background-color: #ccc;\r\n    border: 1px solid #aaa;\r\n    border-radius: 3px;\r\n    box-sizing: border-box;\r\n    box-shadow: none;\r\n    color: #000;\r\n    cursor: pointer;\r\n    margin: 0 0 0 2px;\r\n    opacity: 0.7;\r\n    padding: 4px 6px;\r\n}\r\nbutton:first-of-type {\r\n    margin-left: 0;\r\n}\r\nbutton:disabled {\r\n    color: #999;\r\n    background-color: #ccc;\r\n}\r\nbutton:not(:disabled):hover {\r\n    opacity: 1;\r\n}\r\n#create:not(:disabled) {\r\n    background-color: hsl(36, 100%, 83%);\r\n    border-color: hsl(36, 50%, 60%);\r\n}\r\n#preview {\r\n    float: left;\r\n}\r\nbody.preview #preview {\r\n    background-color: hsl(204, 100%, 83%);\r\n    border-color: hsl(204, 50%, 60%);\r\n}\r\nsection {\r\n    border: 0;\r\n    box-sizing: border-box;\r\n    display: inline-block;\r\n    width: 100%;\r\n}\r\nsection > div:first-child {\r\n    border: 1px solid #aaa;\r\n    margin: 0;\r\n    position: relative;\r\n}\r\nsection.invalidFilter > div:first-child {\r\n    border-color: red;\r\n}\r\nsection > div:first-child > textarea {\r\n    background-color: #fff;\r\n    border: none;\r\n    box-sizing: border-box;\r\n    font: 11px monospace;\r\n    height: 8em;\r\n    margin: 0;\r\n    overflow: hidden;\r\n    overflow-y: auto;\r\n    padding: 2px;\r\n    resize: none;\r\n    width: 100%;\r\n}\r\n#resultsetCount {\r\n    background-color: #aaa;\r\n    bottom: 0;\r\n    color: white;\r\n    padding: 2px 4px;\r\n    position: absolute;\r\n    right: 0;\r\n}\r\nsection.invalidFilter #resultsetCount {\r\n    background-color: red;\r\n}\r\nsection > div:first-child + div {\r\n    direction: ltr;\r\n    margin: 2px 0;\r\n    text-align: right;\r\n}\r\nul {\r\n    padding: 0;\r\n    list-style-type: none;\r\n    text-align: left;\r\n    overflow: hidden;\r\n}\r\naside > ul {\r\n    max-height: 16em;\r\n    overflow-y: auto;\r\n}\r\naside > ul > li:first-of-type {\r\n    margin-bottom: 0.5em;\r\n}\r\nul > li > span:nth-of-type(1) {\r\n    font-weight: bold;\r\n}\r\nul > li > span:nth-of-type(2) {\r\n    font-size: smaller;\r\n    color: gray;\r\n}\r\nul > li > ul {\r\n    list-style-type: none;\r\n    margin: 0 0 0 1em;\r\n    overflow: hidden;\r\n    text-align: left;\r\n}\r\nul > li > ul > li {\r\n    font: 11px monospace;\r\n    white-space: nowrap;\r\n    cursor: pointer;\r\n    direction: ltr;\r\n}\r\nul > li > ul > li:hover {\r\n    background-color: white;\r\n}\r\nsvg {\r\n    position: fixed;\r\n    top: 0;\r\n    left: 0;\r\n    cursor: crosshair;\r\n    width: 100%;\r\n    height: 100%;\r\n}\r\n.paused > svg {\r\n    cursor: not-allowed;\r\n}\r\nsvg > path:first-child {\r\n    fill: rgba(0,0,0,0.5);\r\n    fill-rule: evenodd;\r\n}\r\nsvg > path + path {\r\n    stroke: #F00;\r\n    stroke-width: 0.5px;\r\n    fill: rgba(255,63,63,0.20);\r\n}\r\nbody.zap svg > path + path {\r\n    stroke: #FF0;\r\n    stroke-width: 0.5px;\r\n    fill: rgba(255,255,63,0.20);\r\n}\r\nbody.preview svg > path {\r\n    fill: rgba(0,0,0,0.10);\r\n}\r\nbody.preview svg > path + path {\r\n    stroke: none;\r\n}\r\naside {\r\n    background-color: #eee;\r\n    border: 1px solid #aaa;\r\n    bottom: 4px;\r\n    box-sizing: border-box;\r\n    min-width: 24em;\r\n    padding: 4px;\r\n    position: fixed;\r\n    right: 4px;\r\n    visibility: hidden;\r\n    width: calc(40% - 4px);\r\n}\r\nbody.paused > aside {\r\n    opacity: 0.1;\r\n    visibility: visible;\r\n    z-index: 100;\r\n}\r\nbody.paused > aside:hover {\r\n    opacity: 1;\r\n}\r\nbody.paused > aside.show {\r\n    opacity: 1;\r\n}\r\nbody.paused > aside.hide {\r\n    opacity: 0.1;\r\n}\r\n</style>\r\n</head>\r\n\r\n<body direction=\"{{bidi_dir}}\">\r\n<svg><path></path><path></path></svg>\r\n<aside>\r\n<section>\r\n    <div>\r\n        <textarea lang=\"en\" dir=\"ltr\" spellcheck=\"false\"></textarea>\r\n        <div id=\"resultsetCount\"></div>\r\n    </div>\r\n    <div><!--\r\n    --><button id=\"preview\" type=\"button\">{{preview}}</button><!--\r\n    --><button id=\"create\" type=\"button\" disabled>{{create}}</button><!--\r\n    --><button id=\"pick\" type=\"button\">{{pick}}</button><!--\r\n    --><button id=\"quit\" type=\"button\">{{quit}}</button><!--\r\n    --></div>\r\n</section>\r\n<ul>\r\n    <li id=\"netFilters\">\r\n        <span>{{netFilters}}</span><ul lang=\"en\" class=\"changeFilter\"></ul>\r\n    </li>\r\n    <li id=\"cosmeticFilters\">\r\n        <span>{{cosmeticFilters}}</span> <span>{{cosmeticFiltersHint}}</span>\r\n        <ul lang=\"en\" class=\"changeFilter\"></ul>\r\n    </li>\r\n</ul>\r\n</aside>\r\n</body>\r\n";
 
@@ -1225,8 +1301,7 @@ var cosmeticFilterFromElement = function(elem, realtime) {
     var selector = '';
     var v, i;
     
-    if(realtime)
-        selector += tagName;
+    selector += tagName;
 
     // Id
     v = typeof elem.id === 'string' && CSS.escape(elem.id);
@@ -1295,7 +1370,7 @@ var cosmeticFilterFromElement = function(elem, realtime) {
     // `nth-of-type`. It is preferable to use `nth-of-type` as opposed to
     // `nth-child`, as `nth-of-type` is less volatile.
     var parentNode = elem.parentNode;
-    if (!realtime && safeQuerySelectorAll(parentNode, cssScope + selector).length > 1 ) {
+    if (safeQuerySelectorAll(parentNode, cssScope + selector).length > 1 ) {
         i = 1;
         while ( elem.previousSibling !== null ) {
             elem = elem.previousSibling;
@@ -2161,6 +2236,7 @@ var svgListening = function(on) {
 };
 
 
+
 function hideAllExcept(node){
     hideAllExceptInternal(node, document.body);
 }
@@ -2190,12 +2266,15 @@ function hide(b, strong){
     }
 }
 
+window.hideAllExcept = hideAllExcept;
+window.hide = hide;
+  
 var hiddenElements = [];
 
 function unhideElements(totalReset){
     if(!hiddenElements.length) return;
     hiddenElements.forEach(x => {
-        if(totalReset || x.strong){
+        if(totalReset || !x.strong){
             x.element.style.display = x.display;
             x.element.style.visibility = x.visibility;
         }
@@ -2233,6 +2312,18 @@ var onKeyPressed = function(ev) {
     
     if(ev.key == 'r'){
         unhideElements(true);
+      
+  
+      setvalues(() => {
+        
+        blogInfo.to_delete = null;
+        blogInfo.article_selector = null;
+
+        xhr('PATCH', '/shaman_bloginfo?' + hostQuery, { article_selector: null, to_delete: null}, result => {
+
+        });
+      });
+      
         ev.stopPropagation();
         ev.preventDefault();
         return;
@@ -2243,6 +2334,20 @@ var onKeyPressed = function(ev) {
             hide(first, true);
             originalTargetElement = first.parentElement;
             highlightElements([], true);
+          
+          
+      
+            
+            setvalues(() => {
+                var f = cosmeticFilterFromElement(first, true);
+                if(!blogInfo.to_delete || blogInfo.to_delete.split("\n").indexOf(f) == -1)
+                  blogInfo.to_delete = blogInfo.to_delete ? blogInfo.to_delete + "\n" + f : f;
+                
+                xhr('PATCH', '/shaman_bloginfo?' + hostQuery, { example_url: window.location.href, to_delete: blogInfo.to_delete}, result => {
+                    
+                });
+            });
+            
         }
         ev.stopPropagation();
         ev.preventDefault();
@@ -2254,6 +2359,16 @@ var onKeyPressed = function(ev) {
         if(first){
             hideAllExcept(first);
             highlightElements(targetElements, true);
+            
+            
+            setvalues(() => {
+                xhr('PATCH', '/shaman_bloginfo?' + hostQuery, {example_url: window.location.href, article_selector: cosmeticFilterFromElement(first, true)}, result => {
+                    
+                });
+            });
+            
+            
+            
         }
     
         ev.stopPropagation();
@@ -2356,6 +2471,7 @@ var stopPicker = function() {
     vAPI.domFilterer.unexcludeNode(pickerRoot);
 
     window.removeEventListener('scroll', onScrolled, true);
+    window.removeEventListener('resize', onScrolled, true);
     pickerRoot.contentWindow.removeEventListener('keydown', onKeyPressed, true);
     taCandidate.removeEventListener('input', onCandidateChanged);
     dialog.removeEventListener('click', onDialogClicked);
@@ -2413,6 +2529,7 @@ var startPicker = function(details) {
     svgListening(true);
 
     window.addEventListener('scroll', onScrolled, true);
+    window.addEventListener('resize', onScrolled, true);
     pickerRoot.contentWindow.addEventListener('keydown', onKeyPressed, true);
     pickerRoot.contentWindow.focus();
 
@@ -2573,3 +2690,6 @@ menu.appendChild(m);
 document.body.appendChild(menu);
 document.body.setAttribute('contextmenu', menu.id);
 */
+
+
+onPickerLoaded();
